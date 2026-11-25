@@ -45,6 +45,13 @@
   #keys { color: #888; font-size: 12px; text-align: center; padding: 6px 12px 10px; }
   #overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(0,0,0,.6); color: #eee; font-size: 16px; letter-spacing: 1px; }
+  #gate { position: fixed; inset: 0; z-index: 10; background: #111; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; color: #e8e07a; cursor: pointer; text-align: center; }
+  #gate img { width: 128px; height: 128px; image-rendering: pixelated; border-radius: 22px; }
+  #gate .t { font: 700 26px/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 4px; }
+  #gate .t small { font-size: 14px; letter-spacing: 3px; color: #bbb; }
+  #gate .go { font: 15px ui-monospace, Menlo, monospace; letter-spacing: 2px; color: #eee; animation: blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
   /* touch devices: show the pad; mouse/keyboard devices: show the key legend */
   @media (hover: hover) and (pointer: fine) { #pad { display: none; }
     canvas { width: min(100vw - 32px, (100vh - 120px) * 256 / 240, 1024px); } }
@@ -96,6 +103,8 @@
   <div id="keys">Arrows / WASD move &nbsp;&middot;&nbsp; X fire (B) &nbsp;&middot;&nbsp; Z search (A) &nbsp;&middot;&nbsp; Enter start &nbsp;&middot;&nbsp; Shift select &nbsp;&middot;&nbsp; gamepads work too</div>
 </div>
 <div id="overlay">Paused &mdash; tap to resume</div>
+<div id="gate"><img src="icons/icon-192.png" alt=""><div class="t">DAISYCUTTER<br><small>GOES TO SIBERIA</small></div>
+<div class="go" id="gatemsg">Loading&hellip;</div></div>
 <script src="vendor/jsnes.min.js"></script>
 <script>
 (() => {
@@ -261,8 +270,8 @@
   }
   const overlay = document.getElementById('overlay');
   function pauseEmu() { running = false; overlay.style.display = 'flex'; if (actx) actx.suspend(); }
-  function resumeEmu() { if (running) return; running = true; last = 0; acc = 0; overlay.style.display = 'none'; startAudio(); requestAnimationFrame(loop); }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseEmu(); });
+  function resumeEmu() { if (running || !booted) return; running = true; last = 0; acc = 0; overlay.style.display = 'none'; startAudio(); requestAnimationFrame(loop); }
+  document.addEventListener('visibilitychange', () => { if (document.hidden && booted) pauseEmu(); });
   overlay.addEventListener('pointerdown', resumeEmu);
   addEventListener('keydown', resumeEmu);
 
@@ -277,12 +286,34 @@
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
 
-  // ---------------------------------------------------------------- boot straight into the game
-  fetch('rom/daisycutter.nes').then(r => r.arrayBuffer()).then(buf => {
-    nes.loadROM(new Uint8Array(buf));
+  // ---------------------------------------------------------------- boot
+  // Browsers keep sound locked until the player taps or presses a key, and the title
+  // screen's machine-gun burst plays in the first seconds. So the ROM is loaded in the
+  // background, and the game powers on with the first tap/key, with sound already unlocked.
+  const gate = document.getElementById('gate'), gateMsg = document.getElementById('gatemsg');
+  let romData = null, booted = false;
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  fetch('rom/daisycutter.nes').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(buf => { romData = new Uint8Array(buf); gateMsg.textContent = coarse ? 'TAP TO START' : 'PRESS ANY KEY OR CLICK'; })
+    .catch(() => { gateMsg.textContent = 'Could not load the game. Check your connection and reload.'; });
+  function boot(e) {
+    if (booted || !romData) return;
+    if (e) { e.preventDefault(); e.stopImmediatePropagation(); }
+    booted = true;
+    startAudio();
+    nes.loadROM(romData);
     window.__nes = nes;                              // handy for debugging
+    gate.remove();
     requestAnimationFrame(loop);
-  });
+  }
+  gate.addEventListener('pointerdown', boot);
+  addEventListener('keydown', e => { if (!booted) boot(e); }, true);
+  (function waitPad() {                              // a gamepad button also powers on
+    if (booted) return;
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of pads) if (p && p.buttons.some(b => b.pressed)) { boot(); return; }
+    requestAnimationFrame(waitPad);
+  })();
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
