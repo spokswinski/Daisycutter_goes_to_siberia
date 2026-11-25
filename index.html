@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Daisycutter Goes to Siberia</title>
+<meta name="description" content="Daisycutter Goes to Siberia - an original NES stealth game by IntELiSoft, playable in your browser.">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daisycutter">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root { --bg: #111; --pad: #2b2b2b; --btn: #b3262c; --btn-down: #e0353c; --txt: #bbb; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--txt);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+  #app { height: 100%; display: flex; flex-direction: column; align-items: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  header { width: 100%; max-width: 760px; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; }
+  header .name { letter-spacing: 2px; font-weight: 600; color: #ddd; }
+  header button { background: none; border: 0; color: var(--txt); font-size: 20px; padding: 4px 8px; cursor: pointer; }
+  #screenwrap { flex: 0 1 auto; display: flex; align-items: center; justify-content: center; width: 100%; }
+  canvas { background: #000; image-rendering: pixelated; image-rendering: crisp-edges; border-radius: 4px;
+    width: min(100vw - 16px, (100vh - 330px) * 256 / 240, 768px); height: auto; aspect-ratio: 256 / 240; }
+  #pad { width: 100%; max-width: 520px; display: flex; flex-direction: column; align-items: stretch; padding: 14px 18px 8px; }
+  .row { display: flex; justify-content: space-between; align-items: center; }
+  #dpad { position: relative; width: 150px; height: 150px; touch-action: none; }
+  #dpad .bar { position: absolute; background: var(--pad); border-radius: 8px; }
+  #dpad .v { left: 50px; top: 0; width: 50px; height: 150px; }
+  #dpad .h { top: 50px; left: 0; width: 150px; height: 50px; }
+  #dpad .arrow { position: absolute; color: #777; font-size: 16px; pointer-events: none; }
+  #dpad .on { background: #3d3d3d; }
+  #ab { display: flex; gap: 18px; transform: rotate(-18deg); touch-action: none; }
+  .round { width: 72px; height: 72px; border-radius: 50%; background: var(--btn); border: 0; touch-action: none; }
+  .round.on { background: var(--btn-down); }
+  .lbl { text-align: center; font-size: 12px; margin-top: 4px; pointer-events: none; }
+  #sysbtns { display: flex; justify-content: center; gap: 30px; margin-top: 18px; }
+  .pill { width: 64px; height: 18px; border-radius: 9px; background: #3a3a3a; border: 0; touch-action: none; }
+  .pill.on { background: #555; }
+  #keys { color: #888; font-size: 12px; text-align: center; padding: 6px 12px 10px; }
+  #overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6); color: #eee; font-size: 16px; letter-spacing: 1px; }
+  /* touch devices: show the pad; mouse/keyboard devices: show the key legend */
+  @media (hover: hover) and (pointer: fine) { #pad { display: none; }
+    canvas { width: min(100vw - 32px, (100vh - 120px) * 256 / 240, 1024px); } }
+  @media (hover: none), (pointer: coarse) { #keys { display: none; } }
+  /* phones held sideways: screen in the middle, controls either side */
+  @media (orientation: landscape) and (max-height: 560px) {
+    #app { flex-direction: row; justify-content: center; }
+    header { position: absolute; top: 0; left: 0; right: 0; max-width: none; z-index: 2; pointer-events: none; }
+    header .name { visibility: hidden; } header button { pointer-events: auto; }
+    canvas { width: auto; height: min(100vh - 16px, (100vw - 360px) * 240 / 256); }
+    #pad { position: absolute; inset: 0; max-width: none; flex-direction: row; justify-content: space-between;
+      align-items: center; padding: 0 calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left)); pointer-events: none; }
+    #pad > * { pointer-events: auto; }
+    #pad .row { display: contents; }
+    #sysbtns { position: absolute; bottom: 8px; right: calc(12px + env(safe-area-inset-right)); gap: 14px; margin: 0; }
+    #ab { margin-bottom: 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="name">DAISYCUTTER</span>
+    <span>
+      <button id="mute" aria-label="Mute">&#128266;</button>
+      <button id="full" aria-label="Fullscreen">&#9974;</button>
+    </span>
+  </header>
+  <div id="screenwrap"><canvas id="screen" width="256" height="240" aria-label="Game screen"></canvas></div>
+  <div id="pad">
+    <div class="row">
+      <div id="dpad" aria-label="Direction pad">
+        <div class="bar v"></div><div class="bar h"></div>
+        <span class="arrow" style="left:68px;top:6px">&#9650;</span>
+        <span class="arrow" style="left:68px;bottom:6px">&#9660;</span>
+        <span class="arrow" style="left:8px;top:66px">&#9664;</span>
+        <span class="arrow" style="right:8px;top:66px">&#9654;</span>
+      </div>
+      <div id="ab">
+        <div><button class="round" data-btn="B" aria-label="B fire"></button><div class="lbl">B fire</div></div>
+        <div style="margin-bottom:30px"><button class="round" data-btn="A" aria-label="A search"></button><div class="lbl">A search</div></div>
+      </div>
+    </div>
+    <div id="sysbtns">
+      <div><button class="pill" data-btn="SELECT" aria-label="Select"></button><div class="lbl">Select</div></div>
+      <div><button class="pill" data-btn="START" aria-label="Start"></button><div class="lbl">Start</div></div>
+    </div>
+  </div>
+  <div id="keys">Arrows / WASD move &nbsp;&middot;&nbsp; X fire (B) &nbsp;&middot;&nbsp; Z search (A) &nbsp;&middot;&nbsp; Enter start &nbsp;&middot;&nbsp; Shift select &nbsp;&middot;&nbsp; gamepads work too</div>
+</div>
+<div id="overlay">Paused &mdash; tap to resume</div>
+<script src="vendor/jsnes.min.js"></script>
+<script>
+(() => {
+  'use strict';
+  const W = 256, H = 240, FRAME_MS = 1000 / 60.0988;
+  const canvas = document.getElementById('screen');
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(W, H);
+  const pix = new Uint32Array(image.data.buffer);
+
+  // ---------------------------------------------------------------- audio (ring buffer fed by the emulator)
+  const RING = 16384;
+  const ringL = new Float32Array(RING), ringR = new Float32Array(RING);
+  let wr = 0, rd = 0, actx = null, muted = false;
+  // The context is created up front (browsers keep it suspended until the first tap/key),
+  // so the emulator can be built at the device's native sample rate.
+  const AC = window.AudioContext || window.webkitAudioContext;
+  try { actx = AC ? new AC() : null; } catch (e) { actx = null; }
+  let audioWired = false;
+  function startAudio() {
+    if (!actx) return;
+    if (!audioWired) {
+      audioWired = true;
+      const node = actx.createScriptProcessor(1024, 0, 2);
+      node.onaudioprocess = e => {
+        const L = e.outputBuffer.getChannelData(0), R = e.outputBuffer.getChannelData(1);
+        // keep latency bounded: if the buffer has run far ahead, skip forward
+        const avail = (wr - rd + RING) % RING;
+        if (avail > 6144) rd = (wr - 2048 + RING) % RING;
+        for (let i = 0; i < L.length; i++) {
+          if (rd !== wr) { L[i] = muted ? 0 : ringL[rd]; R[i] = muted ? 0 : ringR[rd]; rd = (rd + 1) % RING; }
+          else { L[i] = R[i] = 0; }
+        }
+      };
+      node.connect(actx.destination);
+    }
+    if (actx.state === 'suspended') actx.resume();
+  }
+
+  // ---------------------------------------------------------------- emulator
+  const nes = new jsnes.NES({
+    onFrame(buf) {
+      for (let i = 0; i < W * H; i++) pix[i] = 0xff000000 | buf[i];
+    },
+    onAudioSample(l, r) {
+      const nxt = (wr + 1) % RING;
+      if (nxt === rd) return;                       // ring full: drop rather than lag
+      ringL[wr] = l; ringR[wr] = r; wr = nxt;
+    },
+    sampleRate: actx ? actx.sampleRate : 44100,
+    emulateSound: true,
+  });
+
+  // ---------------------------------------------------------------- input
+  const C = jsnes.Controller;
+  const BTN = { A: C.BUTTON_A, B: C.BUTTON_B, SELECT: C.BUTTON_SELECT, START: C.BUTTON_START,
+                UP: C.BUTTON_UP, DOWN: C.BUTTON_DOWN, LEFT: C.BUTTON_LEFT, RIGHT: C.BUTTON_RIGHT };
+  const held = {};                                  // button -> set of sources holding it
+  function press(b, src) {
+    (held[b] = held[b] || new Set());
+    if (held[b].size === 0) nes.buttonDown(1, BTN[b]);
+    held[b].add(src);
+  }
+  function release(b, src) {
+    if (!held[b] || !held[b].has(src)) return;
+    held[b].delete(src);
+    if (held[b].size === 0) nes.buttonUp(1, BTN[b]);
+  }
+  const buzz = () => navigator.vibrate && navigator.vibrate(8);
+
+  // keyboard
+  const KEYS = { ArrowUp: 'UP', KeyW: 'UP', ArrowDown: 'DOWN', KeyS: 'DOWN', ArrowLeft: 'LEFT', KeyA: 'LEFT',
+                 ArrowRight: 'RIGHT', KeyD: 'RIGHT', KeyX: 'B', KeyK: 'B', KeyZ: 'A', KeyJ: 'A',
+                 Enter: 'START', ShiftLeft: 'SELECT', ShiftRight: 'SELECT', Tab: 'SELECT' };
+  addEventListener('keydown', e => { const b = KEYS[e.code]; if (!b) return; e.preventDefault(); startAudio(); if (!e.repeat) press(b, 'k' + e.code); });
+  addEventListener('keyup', e => { const b = KEYS[e.code]; if (!b) return; e.preventDefault(); release(b, 'k' + e.code); });
+
+  // touch buttons (A, B, Select, Start) -- slide between A and B works
+  const touchBtns = [...document.querySelectorAll('[data-btn]')];
+  const pointerBtn = {};
+  function btnAt(x, y) {
+    for (const el of touchBtns) {
+      const r = el.getBoundingClientRect(), pad = 10;
+      if (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad) return el;
+    }
+    return null;
+  }
+  function setPointerBtn(id, el) {
+    const old = pointerBtn[id];
+    if (old === el) return;
+    if (old) { release(old.dataset.btn, 'p' + id); old.classList.remove('on'); }
+    if (el) { press(el.dataset.btn, 'p' + id); el.classList.add('on'); buzz(); }
+    pointerBtn[id] = el;
+  }
+  for (const el of touchBtns) {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); startAudio(); el.setPointerCapture(e.pointerId); setPointerBtn(e.pointerId, el); });
+    el.addEventListener('pointermove', e => { if (e.pointerId in pointerBtn) setPointerBtn(e.pointerId, btnAt(e.clientX, e.clientY)); });
+    const up = e => { setPointerBtn(e.pointerId, null); delete pointerBtn[e.pointerId]; };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  }
+
+  // 8-way D-pad: direction from the touch position relative to the pad centre (diagonals for 8-way fire)
+  const dpad = document.getElementById('dpad');
+  const bars = dpad.querySelectorAll('.bar');
+  const dirOf = {};
+  function setDir(id, dirs) {
+    const src = 'd' + id, old = dirOf[id] || [];
+    for (const d of old) if (!dirs.includes(d)) release(d, src);
+    for (const d of dirs) if (!old.includes(d)) press(d, src);
+    if (dirs.length && dirs.join() !== old.join()) buzz();
+    dirOf[id] = dirs;
+    const any = Object.values(dirOf).some(v => v.length);
+    bars.forEach(b => b.classList.toggle('on', any));
+  }
+  function dirsAt(e) {
+    const r = dpad.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    if (Math.hypot(dx, dy) < r.width * 0.12) return [];
+    const a = Math.atan2(dy, dx) * 180 / Math.PI;     // 0 = right, 90 = down
+    const out = [];
+    if (a > -67.5 && a < 67.5) out.push('RIGHT');
+    if (a > 112.5 || a < -112.5) out.push('LEFT');
+    if (a > 22.5 && a < 157.5) out.push('DOWN');
+    if (a < -22.5 && a > -157.5) out.push('UP');
+    return out;
+  }
+  dpad.addEventListener('pointerdown', e => { e.preventDefault(); startAudio(); dpad.setPointerCapture(e.pointerId); setDir(e.pointerId, dirsAt(e)); });
+  dpad.addEventListener('pointermove', e => { if (e.pointerId in dirOf) setDir(e.pointerId, dirsAt(e)); });
+  const dup = e => { setDir(e.pointerId, []); delete dirOf[e.pointerId]; };
+  dpad.addEventListener('pointerup', dup); dpad.addEventListener('pointercancel', dup);
+
+  // gamepads (standard mapping): Xbox A / PS cross = NES B, Xbox B / PS circle = NES A
+  const GP = [[0, 'B'], [2, 'B'], [1, 'A'], [3, 'A'], [8, 'SELECT'], [9, 'START'], [12, 'UP'], [13, 'DOWN'], [14, 'LEFT'], [15, 'RIGHT']];
+  function pollPads() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const p of pads) {
+      if (!p) continue;
+      const src = 'g' + p.index;
+      for (const [i, b] of GP) {
+        const on = p.buttons[i] && p.buttons[i].pressed;
+        on ? press(b, src + i) : release(b, src + i);
+      }
+      const ax = p.axes[0] || 0, ay = p.axes[1] || 0;
+      ax < -0.5 ? press('LEFT', src + 'x') : release('LEFT', src + 'x');
+      ax > 0.5 ? press('RIGHT', src + 'X') : release('RIGHT', src + 'X');
+      ay < -0.5 ? press('UP', src + 'y') : release('UP', src + 'y');
+      ay > 0.5 ? press('DOWN', src + 'Y') : release('DOWN', src + 'Y');
+      if (p.buttons.some(b => b.pressed)) startAudio();
+    }
+  }
+
+  // ---------------------------------------------------------------- main loop (fixed 60.1 Hz steps)
+  let last = 0, acc = 0, running = true;
+  function loop(t) {
+    if (!running) return;
+    if (!last) last = t;
+    acc += Math.min(t - last, 100); last = t;
+    pollPads();
+    let n = 0;
+    while (acc >= FRAME_MS && n < 4) { nes.frame(); acc -= FRAME_MS; n++; }
+    if (n) ctx.putImageData(image, 0, 0);
+    requestAnimationFrame(loop);
+  }
+  const overlay = document.getElementById('overlay');
+  function pauseEmu() { running = false; overlay.style.display = 'flex'; if (actx) actx.suspend(); }
+  function resumeEmu() { if (running) return; running = true; last = 0; acc = 0; overlay.style.display = 'none'; startAudio(); requestAnimationFrame(loop); }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseEmu(); });
+  overlay.addEventListener('pointerdown', resumeEmu);
+  addEventListener('keydown', resumeEmu);
+
+  // ---------------------------------------------------------------- header buttons
+  const muteBtn = document.getElementById('mute');
+  muteBtn.addEventListener('click', () => { muted = !muted; muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;'; startAudio(); });
+  document.getElementById('full').addEventListener('click', () => {
+    const el = document.documentElement;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  });
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ---------------------------------------------------------------- boot straight into the game
+  fetch('rom/daisycutter.nes').then(r => r.arrayBuffer()).then(buf => {
+    nes.loadROM(new Uint8Array(buf));
+    window.__nes = nes;                              // handy for debugging
+    requestAnimationFrame(loop);
+  });
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
