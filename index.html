@@ -302,6 +302,11 @@
     booted = true;
     startAudio();
     nes.loadROM(romData);
+    // Show the full 256x240 picture like the NES Classic. JSNES by default crops 8px off
+    // every edge, and also blanks the whole left 8px column whenever *sprites* are hidden
+    // there; real hardware only hides the sprites and still draws the background.
+    nes.ppu.clipToTvSize = false;
+    nes.ppu.endFrame = function () { this.nes.ui.writeFrame(this.buffer); };
     window.__nes = nes;                              // handy for debugging
     gate.remove();
     requestAnimationFrame(loop);
