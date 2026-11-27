@@ -1,6 +1,6 @@
 // Offline cache for Daisycutter Goes to Siberia.
 // Bump VERSION whenever any file changes so installed copies pick up the update.
-const VERSION = 'daisycutter-v1.3-web1';
+const VERSION = 'daisycutter-v1.4-web1';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'vendor/jsnes.min.js', 'rom/daisycutter.nes',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'
