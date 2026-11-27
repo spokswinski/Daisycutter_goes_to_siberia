@@ -8,7 +8,7 @@ Not officially licensed by Nintendo.
 November 1986. A Soviet nuclear physicist wants out, and Daisycutter is going in to get him.
 Each area hides one weapon inside a searchable object or on a guard, and that weapon is the
 only thing that can kill the area's boss. Interrogate guards for intel, find the weapon,
-take down the boss, and stop KGB agent Viktor Drozd.
+take down the boss, blow up an ICBM launch control room with C-4, and stop KGB agent Viktor Drozd.
 
 Your snow camo hides you from guards and cameras when you enter a screen, until you move.
 Guards raise the alarm if they see you moving, find a body, or hear an unsuppressed weapon. Guards go down in one hit.
@@ -33,7 +33,7 @@ Sound starts on your first tap or key press (browsers require this).
 | NES | Touch | Keyboard | Gamepad |
 |---|---|---|---|
 | D-pad (8-way) | Left pad (slide your thumb for diagonals) | Arrow keys or WASD | D-pad / left stick |
-| **B** — fire | Left red button | **X** (or K) | Xbox A / PlayStation ✕ |
+| **B** — fire (drops C-4 when it's equipped) | Left red button | **X** (or K) | Xbox A / PlayStation ✕ |
 | **A** — search / talk | Right red button | **Z** (or J) | Xbox B / PlayStation ○ |
 | Start — pause / map | Start | **Enter** | Menu / Options |
 | Select — switch weapon | Select | **Shift** | View / Share |
@@ -69,7 +69,7 @@ Notes:
 ### Shipping an update
 
 1. Replace `rom/daisycutter.nes` (and/or edit other files).
-2. In `sw.js`, bump `VERSION` (e.g. `daisycutter-v1.5-web1`) so installed copies refresh
+2. In `sw.js`, bump `VERSION` (e.g. `daisycutter-v1.6-web1`) so installed copies refresh
    their offline cache.
 3. Commit and push to `main`. Pages redeploys automatically; installed apps pick up the
    new version the next time they're opened online.
@@ -87,7 +87,7 @@ python3 -m http.server 8000
 | Path | What it is |
 |---|---|
 | `index.html` | The player: screen, touch controls, keyboard and gamepad input, audio |
-| `rom/daisycutter.nes` | The game (v1.4, MMC1, 128 KB PRG + 128 KB CHR). Also runs on an NES Classic via hakchi2 CE or any NES emulator |
+| `rom/daisycutter.nes` | The game (v1.5, MMC1, 128 KB PRG + 128 KB CHR). Also runs on an NES Classic via hakchi2 CE or any NES emulator |
 | `vendor/jsnes.min.js` | JSNES 3.0.0 emulator core (Apache-2.0) |
 | `manifest.webmanifest`, `sw.js` | App install metadata and offline cache |
 | `icons/` | Home-screen icons |
